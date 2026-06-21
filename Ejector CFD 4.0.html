@@ -1,0 +1,727 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <!-- 모바일 뷰포트 설정: 확대/축소 방지, 전체 화면 사용 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <!-- iOS 웹 앱 설정 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>20" Valve Ejector Sim</title>
+    <style>
+        /* 기본 스타일 및 리셋 */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1e1e1e;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #ecf0f1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden; /* 스크롤 방지 (캔버스 영역) */
+        }
+
+        /* 상단 헤더 */
+        .app-header {
+            width: 100%;
+            padding: 10px 15px;
+            background: #2c3e50;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            height: 50px;
+        }
+        .app-header h1 { font-size: 1rem; margin: 0; color: #3498db; }
+        .app-header span { font-size: 0.7rem; color: #aaa; }
+
+        /* 메인 컨텐츠 영역 (스크롤 가능) */
+        .main-content {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto; /* 세로 스크롤 허용 */
+            padding-bottom: 20px;
+        }
+
+        /* 시뮬레이션 컨테이너 (반응형) */
+        .simulation-wrapper {
+            width: 100%;
+            max-width: 900px;
+            position: relative;
+            margin-top: 10px;
+            /* 가로세로 비율 유지 */
+            aspect-ratio: 900 / 500;
+        }
+       
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #000;
+            border-top: 1px solid #444;
+            border-bottom: 1px solid #444;
+        }
+
+        /* 범례 (Legend) - 수정됨: 숫자(Left) | 색상(Right) */
+        .legend {
+            position: absolute;
+            right: 10px;
+            bottom: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            font-size: 0.7rem;
+            pointer-events: none; /* 터치 통과 */
+            text-align: center;
+        }
+       
+        .legend-container {
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end; /* 우측 정렬 */
+        }
+
+        .legend-bar {
+            width: 12px;
+            height: 80px;
+            border: 1px solid #777;
+            /* margin-left added for spacing from text */
+            margin-left: 6px;
+        }
+       
+        .legend-labels {
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            /* Text aligned to right to hug the bar */
+            text-align: right;
+        }
+
+        /* 컨트롤 패널 */
+        .control-panel {
+            width: 95%;
+            max-width: 900px;
+            margin-top: 15px;
+            background: #2c3e50;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        /* 슬라이더 스타일 */
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+        }
+        .slider-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .slider-label { font-weight: bold; color: #e74c3c; font-size: 0.9rem; }
+        .slider-value { font-weight: bold; color: #fff; font-size: 1rem; }
+       
+        input[type=range] {
+            width: 100%;
+            height: 20px; /* 터치 타겟 확대 */
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #3498db;
+            margin-top: -10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #bdc3c7;
+            border-radius: 2px;
+        }
+
+        /* 버튼 그리드 */
+        .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 2열 배치 */
+            gap: 10px;
+        }
+       
+        button {
+            background: rgba(255,255,255,0.05);
+            color: #bdc3c7;
+            border: 1px solid #555;
+            padding: 12px 5px;
+            cursor: pointer;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        button:active { transform: scale(0.98); }
+        button.active { background: #3498db; color: white; border-color: #3498db; box-shadow: 0 2px 8px rgba(52, 152, 219, 0.4); }
+       
+        #btn-pressure.active { background: #e74c3c; border-color: #e74c3c; }
+        #btn-vacuum.active { background: #3498db; border-color: #3498db; }
+        #btn-noise.active { background: #f39c12; color: #fff; border-color: #f39c12; }
+        #btn-silencer.active { background: #2ecc71; color: white; border-color: #2ecc71; }
+
+        /* 하단 분석 박스 */
+        .analysis-box {
+            width: 95%;
+            max-width: 900px;
+            margin-top: 15px;
+            background: #252525;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            border-left: 4px solid #3498db;
+            margin-bottom: 30px; /* 하단 여백 */
+        }
+        .highlight { color: #f1c40f; font-weight: bold; }
+        .vac-highlight { color: #3498db; font-weight: bold; }
+
+    </style>
+</head>
+<body>
+
+    <!-- 상단 바 -->
+    <div class="app-header">
+        <h1>20" Valve Ejector CFD</h1>
+        <span>Ver 2.7 (Suction 1m Loss)</span>
+    </div>
+
+    <div class="main-content">
+        <!-- 캔버스 영역 -->
+        <div class="simulation-wrapper">
+            <!-- 내부 해상도는 고정하고 CSS로 크기 조절 -->
+            <canvas id="cfdCanvas" width="900" height="500"></canvas>
+           
+            <!-- 범례 (순서 변경됨: 숫자 -> 색상바) -->
+            <div class="legend">
+                <div id="legend-title" style="margin-bottom:5px; font-weight:bold; text-align:center; color:#fff;">압력</div>
+                <div class="legend-container">
+                    <!-- Labels (Numbers) first -->
+                    <div class="legend-labels" id="legend-labels"></div>
+                    <!-- Color Bar second -->
+                    <div class="legend-bar" id="legend-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 컨트롤 패널 -->
+        <div class="control-panel">
+            <!-- 슬라이더 -->
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span class="slider-label">🔧 구동 압력 (Inlet)</span>
+                    <span class="slider-value" id="pressureValue">5.0 bar</span>
+                </div>
+                <input type="range" id="pressureSlider" min="3.0" max="7.0" step="0.1" value="5.0">
+            </div>
+
+            <!-- 버튼들 -->
+            <div class="button-grid">
+                <button onclick="setMode('pressure')" id="btn-pressure" class="active">① 구동 압력</button>
+                <button onclick="setMode('vacuum')" id="btn-vacuum">② 흡입 부압</button>
+                <button onclick="setMode('velocity')" id="btn-velocity">③ 유속 (m/s)</button>
+                <button onclick="setMode('noise')" id="btn-noise">④ 소음 레벨</button>
+                <button onclick="toggleParticles()" id="btn-particles">입자 On/Off</button>
+                <button onclick="toggleSilencer()" id="btn-silencer" style="border-color:#2ecc71; color:#2ecc71;">🔇 소음기</button>
+            </div>
+        </div>
+
+        <!-- 분석 결과 텍스트 -->
+        <div class="analysis-box">
+            <h3 style="margin-top:0; border-bottom:1px solid #555; padding-bottom:5px;">📋 최인남(기계공학 석사)의 현장 가이드</h3>
+            <ul style="padding-left: 20px; margin: 0;">
+                <li><strong>조건 변경:</strong> 흡입측 1/2" 호스 <span class="highlight">1m 적용</span> (압력 손실 반영됨).</li>
+                <li><strong>사운드:</strong> 소음기 OFF 시 가동음 발생 (터치 필요).</li>
+                <li><strong>상태:</strong> 현재 <span class="vac-highlight" id="vac-status">-0.42 bar</span> (손실 후 부압).</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('cfdCanvas');
+        const ctx = canvas.getContext('2d');
+        const slider = document.getElementById('pressureSlider');
+       
+        // --- State Variables ---
+        let mode = 'pressure';
+        let showParticles = true;
+        let hasSilencer = false;
+        let particles = [];
+        const numParticles = 400;
+
+        let currentPressure = 5.0;
+        let currentVacuum = -0.42; // Adjusted for 1m loss
+        let currentNoise = 95;    
+        let currentVelocity = 340;
+        let currentSpeedFactor = 1.0;
+
+        // --- Audio Variables ---
+        let audioCtx = null;
+        let noiseNode = null;
+        let gainNode = null;
+        let filterNode = null;
+
+        // --- Geometry Definitions ---
+        const geo = {
+            inletX: 0, inletY: 150, inletW: 150, inletH: 60,
+            throatX: 150, throatY: 170, throatW: 40, throatH: 20,
+            diffuserX: 190, diffuserY: 150, diffuserW: 80, diffuserH: 60,
+            outletX: 270, outletY: 155, outletW: 630, outletH: 50,
+            suctionX: 160, suctionY: 190, suctionW: 30, suctionH: 60,
+            cavityX: 100, cavityY: 250, cavityW: 600, cavityH: 220,
+            ballR: 90
+        };
+
+        // --- Audio Initialization (Web Audio API) ---
+        function initAudio() {
+            if (audioCtx) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            // Create White Noise Buffer
+            const bufferSize = audioCtx.sampleRate * 2; // 2 seconds buffer
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = buffer;
+            noiseNode.loop = true;
+
+            // LowPass Filter (Gas sound)
+            filterNode = audioCtx.createBiquadFilter();
+            filterNode.type = 'lowpass';
+            filterNode.frequency.value = 800; // Muffled air sound
+
+            // Gain Node (Volume)
+            gainNode = audioCtx.createGain();
+            gainNode.gain.value = 0; // Start silent
+
+            // Connect
+            noiseNode.connect(filterNode);
+            filterNode.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            noiseNode.start();
+            updateAudioVolume();
+        }
+
+        function updateAudioVolume() {
+            if (!audioCtx) return;
+           
+            // Resume context if suspended (browser policy)
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            // Calculate Volume based on Pressure
+            // 3 bar -> low, 7 bar -> high
+            let baseVol = (currentPressure - 2.5) / 5.0; // 0.1 ~ 0.9 range roughly
+            if (baseVol < 0) baseVol = 0;
+            if (baseVol > 1) baseVol = 1;
+
+            // Silencer Effect
+            if (hasSilencer) {
+                // Drastically reduce volume and muffle more
+                gainNode.gain.setTargetAtTime(baseVol * 0.05, audioCtx.currentTime, 0.1); // 5% volume
+                filterNode.frequency.setTargetAtTime(400, audioCtx.currentTime, 0.1); // More muffled
+            } else {
+                // Loud gas noise
+                gainNode.gain.setTargetAtTime(baseVol * 0.5, audioCtx.currentTime, 0.1); // 50% max volume (safe for ears)
+                filterNode.frequency.setTargetAtTime(1200, audioCtx.currentTime, 0.1); // Hissing
+            }
+        }
+
+        // --- Initialization ---
+        function initParticles() {
+            particles = [];
+            for(let i=0; i<numParticles; i++) {
+                particles.push(resetParticle());
+            }
+        }
+
+        function resetParticle() {
+            const isMainStream = Math.random() > 0.35;
+            if (isMainStream) {
+                return { x: Math.random() * geo.inletW, y: geo.inletY + Math.random() * geo.inletH, vx: 0, vy: 0, type: 'N2', life: 0 };
+            } else {
+                let px, py, d;
+                let attempts = 0;
+                const cx = geo.cavityX + geo.cavityW/2;
+                const cy = geo.cavityY + geo.cavityH/2;
+                do {
+                    px = geo.cavityX + Math.random() * geo.cavityW;
+                    py = geo.cavityY + Math.random() * geo.cavityH;
+                    let dx = px - cx; let dy = py - cy;
+                    d = Math.sqrt(dx*dx + dy*dy);
+                    attempts++;
+                } while (d < geo.ballR + 5 && attempts < 10);
+                return { x: px, y: py, vx: 0, vy: 0, type: 'Air', life: 0 };
+            }
+        }
+
+        // --- Update Logic ---
+        slider.addEventListener('input', function() {
+            // Trigger audio init on user interaction
+            if (!audioCtx) initAudio();
+            updatePressure(this.value);
+        });
+
+        function updatePressure(val) {
+            currentPressure = parseFloat(val);
+            document.getElementById('pressureValue').innerText = currentPressure.toFixed(1) + " bar";
+
+            const factor = (currentPressure - 3.0) / 4.0;
+           
+            // *** PHYSICS UPDATE for 1m Suction Hose ***
+            // Base Vacuum (No Loss): -0.05 to -0.95
+            let idealVacuum = -0.05 - (factor * 0.90);
+           
+            // Apply Friction Loss (~15% loss due to 1m of 1/2" pipe)
+            // Vacuum becomes "weaker" (closer to 0)
+            currentVacuum = idealVacuum * 0.85;
+           
+            if(currentVacuum < -0.95) currentVacuum = -0.95; // Cap
+
+            let baseNoise = 70 + (factor * 48);
+            if (hasSilencer) {
+                currentNoise = baseNoise - 20;
+                // Backpressure effect on vacuum (additional minor loss)
+                currentVacuum = currentVacuum * 0.95;
+            } else {
+                currentNoise = baseNoise;
+            }
+
+            currentVelocity = 250 + (factor * 200);
+            currentSpeedFactor = 0.4 + (factor * 0.8);
+           
+            document.getElementById('vac-status').innerText = currentVacuum.toFixed(2) + " bar";
+           
+            updateAudioVolume(); // Sync Sound
+            setMode(mode);
+        }
+
+        function toggleSilencer() {
+            // Trigger audio init on user interaction
+            if (!audioCtx) initAudio();
+
+            hasSilencer = !hasSilencer;
+            const btn = document.getElementById('btn-silencer');
+            if (hasSilencer) {
+                btn.classList.add('active');
+                btn.innerText = "🔇 소음기 ON";
+            } else {
+                btn.classList.remove('active');
+                btn.innerText = "🔇 소음기 OFF";
+            }
+            updatePressure(currentPressure);
+        }
+
+        // --- Drawing Functions ---
+        function drawGeometry() {
+            ctx.fillStyle = '#333'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Fluid Domain
+            ctx.beginPath();
+            ctx.rect(geo.inletX, geo.inletY, geo.inletW, geo.inletH);
+            ctx.moveTo(geo.inletX + geo.inletW, geo.inletY);
+            ctx.lineTo(geo.throatX, geo.throatY); ctx.lineTo(geo.throatX + geo.throatW, geo.throatY);
+            ctx.lineTo(geo.diffuserX + geo.diffuserW, geo.outletY); ctx.lineTo(geo.outletX + geo.outletW, geo.outletY);
+            ctx.lineTo(geo.outletX + geo.outletW, geo.outletY + geo.outletH); ctx.lineTo(geo.diffuserX + geo.diffuserW, geo.outletY + geo.outletH);
+            ctx.lineTo(geo.throatX + geo.throatW, geo.throatY + geo.throatH); ctx.lineTo(geo.throatX, geo.throatY + geo.throatH);
+            ctx.lineTo(geo.inletX + geo.inletW, geo.inletY + geo.inletH); ctx.lineTo(geo.inletX, geo.inletY + geo.inletH);
+            ctx.rect(geo.suctionX, geo.throatY + geo.throatH, geo.suctionW, geo.suctionH);
+            ctx.rect(geo.cavityX, geo.cavityY, geo.cavityW, geo.cavityH);
+            ctx.save(); ctx.clip(); drawField(); ctx.restore();
+
+            // Ball
+            const cx = geo.cavityX + geo.cavityW/2;
+            const cy = geo.cavityY + geo.cavityH/2;
+            ctx.fillStyle = '#7f8c8d'; ctx.beginPath(); ctx.arc(cx, cy, geo.ballR, 0, Math.PI * 2); ctx.fill();
+            ctx.lineWidth = 3; ctx.strokeStyle = '#2c3e50'; ctx.stroke();
+           
+            // Silencer Visual
+            if(hasSilencer) {
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(850, geo.outletY - 10, 50, geo.outletH + 20);
+                ctx.fillStyle = '#fff'; ctx.font = '10px Arial'; ctx.fillText("SILENCER", 852, geo.outletY + 25);
+            }
+
+            // Walls (Outlines)
+            ctx.strokeStyle = '#bdc3c7'; ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, geo.inletY); ctx.lineTo(geo.inletX+geo.inletW, geo.inletY);
+            ctx.lineTo(geo.throatX, geo.throatY); ctx.lineTo(geo.throatX+geo.throatW, geo.throatY);
+            ctx.lineTo(geo.outletX, geo.outletY); ctx.lineTo(900, geo.outletY); ctx.stroke();
+           
+            ctx.beginPath();
+            ctx.moveTo(0, geo.inletY+geo.inletH); ctx.lineTo(geo.inletX+geo.inletW, geo.inletY+geo.inletH);
+            ctx.lineTo(geo.throatX, geo.throatY+geo.throatH); ctx.lineTo(geo.suctionX, geo.throatY+geo.throatH);
+            ctx.lineTo(geo.suctionX, geo.cavityY); ctx.stroke();
+           
+            ctx.strokeRect(geo.cavityX, geo.cavityY, geo.cavityW, geo.cavityH);
+           
+            ctx.beginPath();
+            ctx.moveTo(geo.suctionX+geo.suctionW, geo.cavityY);
+            ctx.lineTo(geo.suctionX+geo.suctionW, geo.throatY+geo.throatH);
+            ctx.lineTo(geo.throatX+geo.throatW, geo.throatY+geo.throatH);
+            ctx.lineTo(geo.outletX, geo.outletY+geo.outletH); ctx.lineTo(900, geo.outletY+geo.outletH); ctx.stroke();
+
+            // Annotations (4 Data Points Dashboard)
+            drawAnnotations(cx, cy);
+        }
+
+        function drawAnnotations(cx, cy) {
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px Segoe UI';
+           
+            if (mode !== 'noise') {
+                ctx.fillText("N2 Inlet", 20, 140);
+                ctx.fillText("Eductor Throat", 130, 130);
+
+                // Ball Label
+                ctx.font = 'bold 16px Segoe UI';
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.fillText("20\" Ball (Solid)", cx, cy + 5);
+               
+                // --- DASHBOARD: 4 Key Data Points ---
+                ctx.textAlign = 'left';
+               
+                // Title
+                ctx.font = 'bold 22px Segoe UI';
+                ctx.fillStyle = '#e74c3c'; // Title Color
+                ctx.fillText("Cavity Area", cx + 120, cy - 50);
+               
+                // 1. Inlet Pressure (White)
+                ctx.font = 'bold 16px Segoe UI';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(`① 압력: ${currentPressure.toFixed(1)} bar`, cx + 120, cy - 20);
+               
+                // 2. Vacuum (Color Coded)
+                if (currentVacuum > -0.2) ctx.fillStyle = '#e74c3c'; // Bad
+                else if (currentVacuum > -0.4) ctx.fillStyle = '#f1c40f'; // Warning
+                else ctx.fillStyle = '#3498db'; // Good
+                ctx.fillText(`② 부압: ${currentVacuum.toFixed(2)} bar`, cx + 120, cy + 5);
+
+                // 3. Velocity (Yellow/Orange)
+                ctx.fillStyle = '#f39c12';
+                ctx.fillText(`③ 유속: ${currentVelocity.toFixed(0)} m/s`, cx + 120, cy + 30);
+
+                // 4. Noise (Red/Green)
+                if (currentNoise > 85) ctx.fillStyle = '#ff4d4d'; // High Noise
+                else ctx.fillStyle = '#2ecc71'; // Safe
+                ctx.fillText(`④ 소음: ${currentNoise.toFixed(0)} dB`, cx + 120, cy + 55);
+               
+                // Suction Line Indicator (NEW)
+                ctx.font = '12px Segoe UI';
+                ctx.fillStyle = '#aaa';
+                // Draw near the suction pipe
+                ctx.fillText("Suction: 1/2\" (1m)", geo.suctionX + 40, geo.cavityY - 15);
+
+                // Indicator Line
+                ctx.beginPath();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#e74c3c';
+                ctx.moveTo(cx + 95, cy);
+                ctx.lineTo(cx + 85, cy);
+                ctx.stroke();
+            }
+
+            if (mode === 'noise') {
+                ctx.font = 'bold 16px Segoe UI';
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#ff4d4d';
+                ctx.fillText(`⚠ ${currentNoise.toFixed(0)} dB`, geo.throatX - 20, geo.throatY - 20);
+               
+                ctx.font = 'bold 14px Segoe UI';
+                ctx.fillStyle = '#f39c12';
+                ctx.fillText(`🔊 ${(currentNoise-15).toFixed(0)} dB`, geo.outletX + 400, geo.outletY - 20);
+            }
+        }
+
+        function drawField() {
+            const factor = (currentPressure - 3.0) / 4.0;
+            let gradMain = ctx.createLinearGradient(0, 0, 900, 0);
+
+            if (mode === 'pressure') {
+                let startColor = `rgba(${200 + factor*55}, ${200 - factor*200}, 0, 1)`;
+                gradMain.addColorStop(0, startColor);
+                gradMain.addColorStop(0.3, '#2ecc71'); gradMain.addColorStop(1, '#2ecc71');  
+                ctx.fillStyle = gradMain; ctx.fillRect(0, 0, 900, 500);
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(geo.cavityX, geo.cavityY, geo.cavityW, geo.cavityH);
+                ctx.fillRect(geo.suctionX, geo.throatY, geo.suctionW, geo.cavityY - geo.throatY);
+            }
+            else if (mode === 'vacuum') {
+                ctx.fillStyle = '#333'; ctx.fillRect(0, 0, 900, 500);
+                let vacIntensity = factor * 0.85; // Visual adjustment for loss
+                let r = 52 * (1-vacIntensity); let g = 152 * (1-vacIntensity); let b = 219 * (1-vacIntensity) + 128 * vacIntensity;
+                let vacColor = `rgb(${r}, ${g}, ${b})`;
+                ctx.fillStyle = '#2ecc71'; ctx.fillRect(geo.inletX, geo.inletY, geo.inletW, geo.inletH);
+                ctx.fillStyle = vacColor; ctx.fillRect(geo.cavityX, geo.cavityY, geo.cavityW, geo.cavityH);
+                let gradSuction = ctx.createLinearGradient(0, geo.throatY, 0, geo.cavityY);
+                gradSuction.addColorStop(0, '#000080'); gradSuction.addColorStop(1, vacColor);
+                ctx.fillStyle = gradSuction; ctx.fillRect(geo.suctionX, geo.throatY, geo.suctionW, geo.cavityY - geo.throatY);
+                let gradOut = ctx.createLinearGradient(geo.throatX, 0, geo.outletX, 0);
+                gradOut.addColorStop(0, '#2ecc71'); gradOut.addColorStop(0.2, '#000080'); gradOut.addColorStop(1, '#2ecc71');  
+                ctx.fillStyle = gradOut; ctx.fillRect(geo.throatX, geo.throatY, 900, 60);
+            }
+            else if (mode === 'velocity') {
+                ctx.fillStyle = '#2c3e50'; ctx.fillRect(0,0, 900, 500);
+                let gradVel = ctx.createLinearGradient(0, 0, 900, 0);
+                gradVel.addColorStop(0, '#e67e22');
+                if (currentPressure > 4.5) { gradVel.addColorStop(0.18, '#ecf0f1'); gradVel.addColorStop(0.22, '#e74c3c'); }
+                else { gradVel.addColorStop(0.18, '#f1c40f'); gradVel.addColorStop(0.22, '#e67e22'); }
+                gradVel.addColorStop(1, '#f1c40f'); ctx.fillStyle = gradVel; ctx.fillRect(0, geo.inletY, 900, 100);
+            }
+            else if (mode === 'noise') {
+                ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0, 0, 900, 500);
+                let noiseAlpha = 0.2 + factor * 0.8;
+                if (hasSilencer) noiseAlpha *= 0.3;
+                let gradNoise = ctx.createLinearGradient(geo.throatX, 0, geo.outletX + 200, 0);
+                if (hasSilencer) {
+                    gradNoise.addColorStop(0, `rgba(46, 204, 113, ${noiseAlpha})`); gradNoise.addColorStop(1, `rgba(46, 204, 113, ${noiseAlpha})`);  
+                } else {
+                    gradNoise.addColorStop(0, `rgba(231, 76, 60, ${noiseAlpha})`); gradNoise.addColorStop(0.1, `rgba(255, 255, 255, ${noiseAlpha})`);
+                    gradNoise.addColorStop(1, `rgba(243, 156, 18, ${noiseAlpha})`);  
+                }
+                ctx.fillStyle = gradNoise; ctx.fillRect(geo.throatX, geo.throatY, 900, geo.throatH);
+                ctx.shadowBlur = hasSilencer ? 5 : (10 + factor * 30);
+                ctx.shadowColor = hasSilencer ? "#2ecc71" : "red";
+                ctx.fillRect(geo.throatX, geo.throatY - 5, 200, geo.throatH + 10);
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        function updateParticles() {
+            if (!showParticles) return;
+            const cx = geo.cavityX + geo.cavityW/2;
+            const cy = geo.cavityY + geo.cavityH/2;
+
+            particles.forEach(p => {
+                let spd = currentSpeedFactor;
+                // 1. Ball Collision
+                if (p.type === 'Air' && p.y > geo.cavityY) {
+                    let dx = p.x - cx; let dy = p.y - cy;
+                    if (Math.sqrt(dx*dx + dy*dy) < geo.ballR + 2) {
+                        let nx = dx/Math.sqrt(dx*dx+dy*dy); let ny = dy/Math.sqrt(dx*dx+dy*dy);
+                        p.x = cx + nx * (geo.ballR+3); p.y = cy + ny * (geo.ballR+3);
+                    }
+                }
+                // 2. Flow Logic
+                if (p.x < geo.throatX && p.y < geo.cavityY) { p.vx = 3*spd; p.vy = 0; }
+                else if (p.x >= geo.throatX && p.x < geo.throatX+geo.throatW && p.y < geo.cavityY) { p.vx = 8*spd; if (p.y<geo.throatY) p.y+=1; if (p.y>geo.throatY+geo.throatH) p.y-=1; }
+                else if (p.x >= geo.throatX+geo.throatW && p.x < geo.outletX && p.y < geo.cavityY) { p.vx = 6*spd; if (p.y<geo.inletY) { p.y=geo.inletY+2; p.vy=0; } }
+                else if (p.x >= geo.outletX && p.y < geo.cavityY) {
+                    p.vx = 5*spd;
+                    if (p.y < geo.outletY+2) { p.y=geo.outletY+2; p.vy=0; }
+                    if (p.y > geo.outletY+geo.outletH-2) { p.y=geo.outletY+geo.outletH-2; p.vy=0; }
+                }
+                else if (p.y >= geo.cavityY) {
+                    let dx = (geo.suctionX+geo.suctionW/2) - p.x;
+                    let suctionStr = 1.0 * spd;
+                    if (currentPressure < 3.5) suctionStr *= 0.2;
+                    p.vx = dx * 0.03 + (Math.random()-0.5)*0.2; p.vy = -suctionStr;
+                    if (p.y+p.vy < geo.cavityY) {
+                        if (p.x > geo.suctionX+2 && p.x < geo.suctionX+geo.suctionW-2) {} else { p.y=geo.cavityY; p.vy=0; p.vx = dx>0?1.5:-1.5; }
+                    }
+                }
+                else if (p.y < geo.cavityY && p.y > geo.throatY+geo.throatH) {
+                    if (p.x <= geo.suctionX) { p.x=geo.suctionX+2; p.vx=0.5; }
+                    if (p.x >= geo.suctionX+geo.suctionW) { p.x=geo.suctionX+geo.suctionW-2; p.vx=-0.5; }
+                    p.vx = (geo.suctionX+geo.suctionW/2 - p.x)*0.1; p.vy = -3*spd;
+                    if (p.y <= geo.throatY+geo.throatH+5) { p.vy=0; p.vx=7*spd; p.y=geo.throatY+geo.throatH/2; p.type='N2'; }
+                }
+
+                p.x += p.vx; p.y += p.vy;
+
+                // Draw Point
+                if (mode === 'pressure') ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                else if (mode === 'vacuum') ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                else if (mode === 'velocity') {
+                     if (currentPressure > 6) ctx.fillStyle = '#fff';
+                     else if (currentPressure > 4) ctx.fillStyle = '#f1c40f';
+                     else ctx.fillStyle = '#3498db';
+                } else if (mode === 'noise') ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+
+                ctx.beginPath(); ctx.arc(p.x, p.y, 2.0, 0, Math.PI * 2); ctx.fill();
+
+                if (p.x > 900 || p.y < 0 || p.life > 600) { Object.assign(p, resetParticle()); }
+            });
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGeometry();
+            updateParticles();
+            requestAnimationFrame(animate);
+        }
+
+        function setMode(m) {
+            mode = m;
+            document.querySelectorAll('.button-grid button').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + m).classList.add('active');
+            if(hasSilencer) document.getElementById('btn-silencer').classList.add('active'); // Keep silencer active
+
+            const bar = document.getElementById('legend-bar');
+            const labels = document.getElementById('legend-labels');
+            const title = document.getElementById('legend-title');
+
+            if (m === 'pressure') {
+                title.innerText = '구동 압력';
+                bar.style.background = 'linear-gradient(to bottom, #e74c3c, #f1c40f, #2ecc71, #2ecc71)';
+                labels.innerHTML = `<span>${currentPressure.toFixed(1)} bar</span><span>${(currentPressure/2).toFixed(1)} bar</span><span>0 bar</span>`;
+            } else if (m === 'vacuum') {
+                title.innerText = '흡입 부압';
+                bar.style.background = 'linear-gradient(to bottom, #2ecc71, #3498db, #000080)';
+                labels.innerHTML = `<span>0 bar</span><span>-0.3</span><span>-0.6</span><span>-0.9</span>`;
+            } else if (m === 'velocity') {
+                title.innerText = '유속';
+                bar.style.background = 'linear-gradient(to bottom, #ffffff, #e74c3c, #f1c40f, #e67e22, #2c3e50)';
+                labels.innerHTML = '<span>High</span><span>Med</span><span>Low</span><span>0</span>';
+            } else if (m === 'noise') {
+                title.innerText = '소음(dB)';
+                bar.style.background = 'linear-gradient(to bottom, #ffffff, #e74c3c, #f39c12, #1a1a2e)';
+                labels.innerHTML = `<span>${currentNoise.toFixed(0)} dB</span><span>100</span><span>80</span><span>60</span>`;
+            }
+        }
+
+        function toggleParticles() {
+            showParticles = !showParticles;
+            const btn = document.getElementById('btn-particles');
+            if(showParticles) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+
+        // Start
+        initParticles();
+        animate();
+        updatePressure(5.0);
+        document.getElementById('btn-particles').classList.add('active');
+
+    </script>
+</body>
+</html>
