@@ -13,10 +13,22 @@ export default function Home() {
   const [hasSilencer, setHasSilencer] = useState<boolean>(false);
 
   // Derived physics state
-  const [vacuum, setVacuum] = useState<number>(-0.42);
-  const [velocity, setVelocity] = useState<number>(340);
-  const [noise, setNoise] = useState<number>(95);
-  const [speedFactor, setSpeedFactor] = useState<number>(1.0);
+  const factor = (pressure - 3.0) / 4.0;
+  let idealVacuum = -0.05 - (factor * 0.90);
+  let currentVacuum = idealVacuum * 0.85;
+  if (currentVacuum < -0.95) currentVacuum = -0.95;
+
+  let currentNoise = 70 + (factor * 48);
+
+  if (hasSilencer) {
+    currentNoise = currentNoise - 20;
+    currentVacuum = currentVacuum * 0.95;
+  }
+
+  const vacuum = currentVacuum;
+  const noise = currentNoise;
+  const velocity = 250 + (factor * 200);
+  const speedFactor = 0.4 + (factor * 0.8);
 
   // Audio Context Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -26,7 +38,7 @@ export default function Home() {
 
   const initAudio = useCallback(() => {
     if (audioCtxRef.current) return;
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
 
     const ctx = new AudioContextClass();
@@ -61,28 +73,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const factor = (pressure - 3.0) / 4.0;
-    
-    let idealVacuum = -0.05 - (factor * 0.90);
-    let currentVacuum = idealVacuum * 0.85;
-    if (currentVacuum < -0.95) currentVacuum = -0.95;
-
-    let baseNoise = 70 + (factor * 48);
-    let currentNoise = baseNoise;
-
-    if (hasSilencer) {
-      currentNoise = baseNoise - 20;
-      currentVacuum = currentVacuum * 0.95;
-    }
-
-    let currentVelocity = 250 + (factor * 200);
-    let currentSpeedFactor = 0.4 + (factor * 0.8);
-
-    setVacuum(currentVacuum);
-    setNoise(currentNoise);
-    setVelocity(currentVelocity);
-    setSpeedFactor(currentSpeedFactor);
-
     if (audioCtxRef.current) {
       if (audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume();

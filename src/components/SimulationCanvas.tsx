@@ -16,7 +16,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
   pressure, vacuum, velocity, noise, mode, showParticles, hasSilencer, speedFactor
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<any[]>([]);
+  const particlesRef = useRef<{x: number, y: number, vx: number, vy: number, type: string, life: number}[]>([]);
   const animationRef = useRef<number | null>(null);
 
   const geo = {
@@ -44,7 +44,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         do {
           px = geo.cavityX + Math.random() * geo.cavityW;
           py = geo.cavityY + Math.random() * geo.cavityH;
-          let dx = px - cx; let dy = py - cy;
+          const dx = px - cx; const dy = py - cy;
           d = Math.sqrt(dx * dx + dy * dy);
           attempts++;
         } while (d < geo.ballR + 5 && attempts < 10);
@@ -79,8 +79,8 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       const factor = (pressure - 3.0) / 4.0;
       
       if (mode === 'pressure') {
-        let gradMain = ctx.createLinearGradient(0, 0, 900, 0);
-        let startColor = `rgba(${200 + factor * 55}, ${200 - factor * 200}, 0, 1)`;
+        const gradMain = ctx.createLinearGradient(0, 0, 900, 0);
+        const startColor = `rgba(${200 + factor * 55}, ${200 - factor * 200}, 0, 1)`;
         gradMain.addColorStop(0, startColor);
         gradMain.addColorStop(0.3, '#2ecc71'); gradMain.addColorStop(1, '#2ecc71');
         ctx.fillStyle = gradMain; ctx.fillRect(0, 0, 900, 500);
@@ -90,21 +90,21 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       }
       else if (mode === 'vacuum') {
         ctx.fillStyle = '#111'; ctx.fillRect(0, 0, 900, 500);
-        let vacIntensity = factor * 0.85; 
-        let r = 52 * (1 - vacIntensity); let g = 152 * (1 - vacIntensity); let b = 219 * (1 - vacIntensity) + 128 * vacIntensity;
-        let vacColor = `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
+        const vacIntensity = factor * 0.85; 
+        const r = 52 * (1 - vacIntensity); const g = 152 * (1 - vacIntensity); const b = 219 * (1 - vacIntensity) + 128 * vacIntensity;
+        const vacColor = `rgb(${Math.floor(r)}, ${Math.floor(g)}, ${Math.floor(b)})`;
         ctx.fillStyle = '#2ecc71'; ctx.fillRect(geo.inletX, geo.inletY, geo.inletW, geo.inletH);
         ctx.fillStyle = vacColor; ctx.fillRect(geo.cavityX, geo.cavityY, geo.cavityW, geo.cavityH);
-        let gradSuction = ctx.createLinearGradient(0, geo.throatY, 0, geo.cavityY);
+        const gradSuction = ctx.createLinearGradient(0, geo.throatY, 0, geo.cavityY);
         gradSuction.addColorStop(0, '#000080'); gradSuction.addColorStop(1, vacColor);
         ctx.fillStyle = gradSuction; ctx.fillRect(geo.suctionX, geo.throatY, geo.suctionW, geo.cavityY - geo.throatY);
-        let gradOut = ctx.createLinearGradient(geo.throatX, 0, geo.outletX, 0);
+        const gradOut = ctx.createLinearGradient(geo.throatX, 0, geo.outletX, 0);
         gradOut.addColorStop(0, '#2ecc71'); gradOut.addColorStop(0.2, '#000080'); gradOut.addColorStop(1, '#2ecc71');
         ctx.fillStyle = gradOut; ctx.fillRect(geo.throatX, geo.throatY, 900, 60);
       }
       else if (mode === 'velocity') {
         ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, 900, 500);
-        let gradVel = ctx.createLinearGradient(0, 0, 900, 0);
+        const gradVel = ctx.createLinearGradient(0, 0, 900, 0);
         gradVel.addColorStop(0, '#e67e22');
         if (pressure > 4.5) { gradVel.addColorStop(0.18, '#ecf0f1'); gradVel.addColorStop(0.22, '#e74c3c'); }
         else { gradVel.addColorStop(0.18, '#f1c40f'); gradVel.addColorStop(0.22, '#e67e22'); }
@@ -114,7 +114,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
         ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, 900, 500);
         let noiseAlpha = 0.2 + factor * 0.8;
         if (hasSilencer) noiseAlpha *= 0.3;
-        let gradNoise = ctx.createLinearGradient(geo.throatX, 0, geo.outletX + 200, 0);
+        const gradNoise = ctx.createLinearGradient(geo.throatX, 0, geo.outletX + 200, 0);
         if (hasSilencer) {
           gradNoise.addColorStop(0, `rgba(46, 204, 113, ${noiseAlpha})`); gradNoise.addColorStop(1, `rgba(46, 204, 113, ${noiseAlpha})`);
         } else {
@@ -325,7 +325,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           do {
             px = geo.cavityX + Math.random() * geo.cavityW;
             py = geo.cavityY + Math.random() * geo.cavityH;
-            let dx = px - cx; let dy = py - cy;
+            const dx = px - cx; const dy = py - cy;
             d = Math.sqrt(dx * dx + dy * dy);
             attempts++;
           } while (d < geo.ballR + 5 && attempts < 10);
@@ -338,19 +338,19 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
       ctx.clip();
 
       particlesRef.current.forEach(p => {
-        let spd = speedFactor;
+        const spd = speedFactor;
         
         if (p.type === 'Air' && p.y > geo.cavityY) {
-          let dx = p.x - cx; let dy = p.y - cy;
+          const dx = p.x - cx; const dy = p.y - cy;
           if (Math.sqrt(dx * dx + dy * dy) < geo.ballR + 2) {
-            let nx = dx / Math.sqrt(dx * dx + dy * dy); let ny = dy / Math.sqrt(dx * dx + dy * dy);
+            const nx = dx / Math.sqrt(dx * dx + dy * dy); const ny = dy / Math.sqrt(dx * dx + dy * dy);
             p.x = cx + nx * (geo.ballR + 3); p.y = cy + ny * (geo.ballR + 3);
           }
         }
         
         if (p.y >= geo.cavityY) {
-          let targetX = geo.suctionX + geo.suctionW / 2;
-          let dx = targetX - p.x;
+          const targetX = geo.suctionX + geo.suctionW / 2;
+          const dx = targetX - p.x;
           let suctionStr = 1.0 * spd;
           if (pressure < 3.5) suctionStr *= 0.2;
           p.vx = dx * 0.03 + (Math.random() - 0.5) * 0.5; p.vy = -suctionStr;
@@ -364,7 +364,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({
           if (p.x <= geo.suctionX) { p.x = geo.suctionX + 2; p.vx = 0.5; }
           if (p.x >= geo.suctionX + geo.suctionW) { p.x = geo.suctionX + geo.suctionW - 2; p.vx = -0.5; }
           
-          let distToThroat = p.y - (geo.throatY + geo.throatH);
+          const distToThroat = p.y - (geo.throatY + geo.throatH);
           if (distToThroat < 20) {
             p.vx += 0.5 * spd; // Smoothly curve right
             p.vy = -1.5 * spd; 
